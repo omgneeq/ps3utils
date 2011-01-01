@@ -1,5 +1,5 @@
 /*
- * pup.h -- PS3 PUP update file extractor/creator
+ * pup.c -- PS3 PUP update file extractor/creator
  *
  * Copyright (C) Youness Alaoui (KaKaRoTo)
  *
@@ -211,6 +211,12 @@ static void extract (const char *file, const char *dest)
     out = NULL;
   }
 
+  fclose (fd);
+  free (files);
+  free (hashes);
+
+  return;
+
  error:
   if (fd)
     fclose (fd);
@@ -226,7 +232,7 @@ static void extract (const char *file, const char *dest)
 
 static void create (const char *directory, const char *dest)
 {
-  
+  fprintf (stderr, "Not implemented yet");
 }
 
 
