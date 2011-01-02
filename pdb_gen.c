@@ -16,6 +16,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <string.h>
+#include <arpa/inet.h>
 
 
 #define PDB_HEADER		0x00000000
@@ -60,32 +61,11 @@ typedef struct {
 } PkgHeader;
 
 
-static int am_big_endian(void)
-{
-  long one= 1;
-  return !(*((char *)(&one)));
-}
-
-
-static uint32_t cpu_to_be32 (uint32_t cpu)
-{
-  unsigned int i;
-  uint32_t result;
-
-  if (am_big_endian ())
-    return cpu;
-
-  for (i = 0; i < sizeof(uint32_t); i++)
-    ((char *)&result)[i] = ((char *)&cpu)[sizeof(uint32_t) - i - 1];
-
-  return result;
-}
-
 static void
 write_kllv (FILE *f, uint32_t key, uint32_t len, uint8_t *value)
 {
-  uint32_t key_be = cpu_to_be32 (key);
-  uint32_t len_be = cpu_to_be32 (len);
+  uint32_t key_be = htonl (key);
+  uint32_t len_be = htonl (len);
 
   fwrite (&key_be, sizeof(uint32_t), 1, f);
   fwrite (&len_be, sizeof(uint32_t), 1, f);
@@ -97,12 +77,12 @@ write_kllv (FILE *f, uint32_t key, uint32_t len, uint8_t *value)
 static void
 write_pdb (FILE *f, char *out_path, char *pkg_path, char *title,
     PkgHeader *pkg_header, uint32_t header5) {
-  uint32_t pdb_header = cpu_to_be32 (PDB_HEADER);
-  uint32_t header1 = cpu_to_be32 (0);
-  uint32_t header2 = cpu_to_be32 (0);
+  uint32_t pdb_header = htonl (PDB_HEADER);
+  uint32_t header1 = htonl (0);
+  uint32_t header2 = htonl (0);
   uint8_t header3 = 0;
-  uint32_t header4 = cpu_to_be32 (3);
-  uint32_t header6 = cpu_to_be32 (0);
+  uint32_t header4 = htonl (3);
+  uint32_t header6 = htonl (0);
   uint64_t pkg_size = pkg_header->pkg_size; /* already in BE */
   char pkg_date[] = "Thu, 02 Sep 2010 17:28:10 GMT";
   char icon_file[1024];
@@ -226,9 +206,9 @@ int main (int argc, char *argv[])
   }
 
   write_pdb (out1, path, argv[1], argc >= 3 ? argv[2]: NULL,
-      &pkg_header, cpu_to_be32 (HEADER5_MAGIC_VALUE));
+      &pkg_header, htonl (HEADER5_MAGIC_VALUE));
   write_pdb (out2, path, argv[1], argc >= 3 ? argv[2]: NULL,
-      &pkg_header, cpu_to_be32 (0));
+      &pkg_header, htonl (0));
 
   fclose (out1);
   fclose (out2);
