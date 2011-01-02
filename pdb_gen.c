@@ -54,7 +54,7 @@ typedef struct {
   uint64_t pkg_size;
   uint64_t data_offset;
   uint64_t data_size;
-  uint8_t content_id[30];
+  char content_id[30];
   uint8_t QA_digest[10];
   uint8_t unknown_digest[10];
 } PkgHeader;
@@ -67,23 +67,9 @@ static int am_big_endian(void)
 }
 
 
-static uint64_t cpu_to_be64 (uint64_t cpu)
-{
-  int i;
-  uint64_t result;
-
-  if (am_big_endian ())
-    return cpu;
-
-  for (i = 0; i < sizeof(uint64_t); i++)
-    ((char *)&result)[i] = ((char *)&cpu)[sizeof(uint64_t) - i - 1];
-
-  return result;
-}
-
 static uint32_t cpu_to_be32 (uint32_t cpu)
 {
-  int i;
+  unsigned int i;
   uint32_t result;
 
   if (am_big_endian ())
@@ -118,13 +104,13 @@ write_pdb (FILE *f, char *out_path, char *pkg_path, char *title,
   uint32_t header4 = cpu_to_be32 (3);
   uint32_t header6 = cpu_to_be32 (0);
   uint64_t pkg_size = pkg_header->pkg_size; /* already in BE */
-  uint8_t pkg_date[] = "Thu, 02 Sep 2010 17:28:10 GMT";
-  uint8_t icon_file[1024];
-  uint8_t content_title[1024];
-  uint8_t download_url[1024];
+  char pkg_date[] = "Thu, 02 Sep 2010 17:28:10 GMT";
+  char icon_file[1024];
+  char content_title[1024];
+  char download_url[1024];
   uint8_t unknown1 = 1;
   uint8_t unknown2 = 0;
-  uint8_t log_url[] = "http://google.com";
+  char log_url[] = "http://google.com";
   uint8_t unknown3 = 0;
   int i;
 
@@ -160,17 +146,17 @@ write_pdb (FILE *f, char *out_path, char *pkg_path, char *title,
 
   write_kllv (f, CURRENT_LENGTH, sizeof(uint64_t), (uint8_t *) &pkg_size);
   write_kllv (f, TOTAL_LENGTH, sizeof(uint64_t), (uint8_t *) &pkg_size);
-  write_kllv (f, PKG_DATE, strlen (pkg_date) + 1, pkg_date);
-  write_kllv (f, IMAGE_PATH, strlen (icon_file) + 1, icon_file);
-  write_kllv (f, TITLE, strlen (content_title) + 1, content_title);
-  write_kllv (f, DOWNLOAD_URL, strlen (download_url) + 1, download_url);
-  write_kllv (f, FILENAME, strlen (pkg_path) + 1, pkg_path);
+  write_kllv (f, PKG_DATE, strlen (pkg_date) + 1, (uint8_t *) pkg_date);
+  write_kllv (f, IMAGE_PATH, strlen (icon_file) + 1, (uint8_t *) icon_file);
+  write_kllv (f, TITLE, strlen (content_title) + 1, (uint8_t *) content_title);
+  write_kllv (f, DOWNLOAD_URL, strlen (download_url) + 1, (uint8_t *) download_url);
+  write_kllv (f, FILENAME, strlen (pkg_path) + 1, (uint8_t *) pkg_path);
   write_kllv (f, CONTENT_ID, strlen (pkg_header->content_id) + 1,
-      pkg_header->content_id);
-  write_kllv (f, UNKNOWN1, sizeof(uint8_t), &unknown1);
-  write_kllv (f, UNKNOWN2, sizeof(uint8_t), &unknown2);
-  write_kllv (f, LOG_URL, strlen (log_url) + 1, log_url);
-  write_kllv (f, UNKNOWN3, sizeof(uint8_t), &unknown3);
+      (uint8_t *) pkg_header->content_id);
+  write_kllv (f, UNKNOWN1, sizeof(uint8_t), (uint8_t *) &unknown1);
+  write_kllv (f, UNKNOWN2, sizeof(uint8_t), (uint8_t *) &unknown2);
+  write_kllv (f, LOG_URL, strlen (log_url) + 1, (uint8_t *) log_url);
+  write_kllv (f, UNKNOWN3, sizeof(uint8_t), (uint8_t *) &unknown3);
 }
 
 int main (int argc, char *argv[])
@@ -202,7 +188,7 @@ int main (int argc, char *argv[])
 
 
   for (i = 2; i < 20 && ret == -1; i++) {
-    sprintf (path, "%0.8X", i);
+    sprintf (path, "%.8X", i);
     ret = mkdir (path, 0777);
     if (ret != 0 && errno != EEXIST) {
       perror ("Error creating directory : ");

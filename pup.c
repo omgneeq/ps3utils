@@ -15,10 +15,11 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <limits.h>
+#include <arpa/inet.h>
 
 #define VERSION "0.1"
 
-#define PUP_MAGIC 0x5343455546000000  /* "SCEUF\0\0\0" */
+#define PUP_MAGIC (uint64_t) 0x5343455546000000  /* "SCEUF\0\0\0" */
 
 typedef struct {
   uint64_t magic;
@@ -130,14 +131,14 @@ static void extract (const char *file, const char *dest)
 
   read = fread (files, sizeof(PUPFileEntry), header.file_count, fd);
 
-  if (read < header.file_count) {
+  if (read < 0 || (uint) read < header.file_count) {
     perror ("Couldn't read file entries");
     goto error;
   }
 
   read = fread (hashes, sizeof(PUPHashEntry), header.file_count, fd);
 
-  if (read < header.file_count) {
+  if (read < 0 || (uint) read < header.file_count) {
     perror ("Couldn't read hash entries");
     goto error;
   }
@@ -159,9 +160,9 @@ static void extract (const char *file, const char *dest)
     goto error;
   }
 
-  for (i = 0; i < header.file_count; i++) {
+  for (i = 0; (uint) i < header.file_count; i++) {
     const char *file = NULL;
-    int len;
+    unsigned int len;
 
     files[i].entry_id = ntohll (files[i].entry_id);
     files[i].data_offset = ntohll (files[i].data_offset);
@@ -194,13 +195,13 @@ static void extract (const char *file, const char *dest)
         len = sizeof(buffer);
       read = fread (buffer, 1, len, fd);
 
-      if (read < len) {
+      if (read < 0 || (uint) read < len) {
         perror ("Couldn't read all the data");
         goto error;
       }
 
       written = fwrite (buffer, 1, len, out);
-      if (written < len) {
+      if (written < 0 || (uint) written < len) {
         perror ("Couldn't write all the data");
         goto error;
       }
