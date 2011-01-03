@@ -82,7 +82,7 @@ typedef struct {
 
 static const PUPEntryID entries[] = {
   {0x100, "version.txt"},
-  {0x101, "license.txt"},
+  {0x101, "license.xml"},
   {0x102, "promo_flags.txt"},
   {0x103, "update_flags.txt"},
   {0x104, "patch_build.txt"},
