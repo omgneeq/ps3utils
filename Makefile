@@ -19,5 +19,7 @@ BINS= \
 
 all: $(BINS)
 
+pup: sha1.o pup.o
+
 clean:
 	rm -f $(BINS) *~
