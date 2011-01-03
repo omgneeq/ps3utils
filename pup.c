@@ -70,9 +70,9 @@ static void usage (const char *program)
 {
   fprintf (stderr, "Usage:\n\t%s <command> <options>\n\n"
       "Commands/Options:\n"
-      "\ti <filename.pup>:\tInformation about the PUP file\n"
-      "\tx <filename.pup> <output directory>:\tExtract PUP file\n"
-      "\tc <input directory> <filename.pup>:\tCreate PUP file\n\n", program);
+      "\ti <filename.pup>:\t\t\t\t\tInformation about the PUP file\n"
+      "\tx <filename.pup> <output directory>:\t\t\tExtract PUP file\n"
+      "\tc <input directory> <filename.pup> <build number>:\tCreate PUP file\n\n", program);
   exit (-1);
 }
 
@@ -391,7 +391,7 @@ static void extract (const char *file, const char *dest)
   exit (-2);
 }
 
-static void create (const char *directory, const char *dest)
+static void create (const char *directory, const char *dest, long build)
 {
   FILE *fd = NULL;
   FILE *out = NULL;
@@ -425,7 +425,7 @@ static void create (const char *directory, const char *dest)
 
   header.magic = PUP_MAGIC;
   header.package_version = 1;
-  header.image_version = 45039;  /* TODO */
+  header.image_version = build;
   header.header_length = sizeof(PUPHeader) + sizeof(PUPFooter);
 
   while (entry->id) {
@@ -625,9 +625,9 @@ int main (int argc, char *argv[])
       extract (argv[2], argv[3]);
       break;
     case 'c':
-      if (argc != 4)
+      if (argc != 5)
         usage (argv[0]);
-      create (argv[2], argv[3]);
+      create (argv[2], argv[3], atol (argv[4]));
       break;
     default:
       usage (argv[0]);
