@@ -131,7 +131,7 @@ static void print_hash (const char *message, uint8_t hash[20])
 
 static void print_header_info (PUPHeader *header, PUPFooter *footer)
 {
-  printf ("PUP file found\n"
+  printf ("PUP file information\n"
       "Package version: %llu\n"
       "Image version: %llu\n"
       "File count: %llu\n"
