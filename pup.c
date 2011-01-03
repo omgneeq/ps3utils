@@ -64,6 +64,7 @@ typedef struct
 } PUPFooter;
 
 #define ntohll(x) (((uint64_t) ntohl (x) << 32) | (uint64_t) ntohl (x >> 32) )
+#define htonll(x) (((uint64_t) htonl (x) << 32) | (uint64_t) htonl (x >> 32) )
 
 static void usage (const char *program)
 {
@@ -104,18 +105,6 @@ static const char *id_to_filename (uint64_t entry_id)
     entry++;
   }
   return NULL;
-}
-
-static uint64_t filename_to_id (const char * entry_filename)
-{
-  const PUPEntryID *entry = entries;
-
-  while (entry->filename) {
-    if (strcmp(entry->filename, entry_filename) == 0)
-      return entry->id;
-    entry++;
-  }
-  return 0;
 }
 
 static void print_hash (const char *message, uint8_t hash[20])
@@ -404,7 +393,209 @@ static void extract (const char *file, const char *dest)
 
 static void create (const char *directory, const char *dest)
 {
-  fprintf (stderr, "Not implemented yet");
+  FILE *fd = NULL;
+  FILE *out = NULL;
+  int read;
+  int written;
+  unsigned int i;
+  PUPHeader orig_header;
+  PUPHeader header;
+  PUPFooter footer;
+  PUPFileEntry *files = NULL;
+  PUPHashEntry *hashes = NULL;
+  char filename[PATH_MAX+1];
+  char buffer[1024];
+  HMAC_CTX context;
+  struct stat stat_buf;
+  const PUPEntryID *entry = entries;
+
+  if (stat (dest, &stat_buf) == 0) {
+    fprintf (stderr, "Destination file must not exist\n");
+    goto error;
+  }
+
+  out = fopen (dest, "wb");
+  if (out == NULL) {
+    perror ("Could not open output file");
+    goto error;
+  }
+
+  memset (&header, 0, sizeof(PUPHeader));
+  memset (&footer, 0, sizeof(PUPHeader));
+
+  header.magic = PUP_MAGIC;
+  header.package_version = 1;
+  header.image_version = 45039;  /* TODO */
+  header.header_length = sizeof(PUPHeader) + sizeof(PUPFooter);
+
+  while (entry->id) {
+    HMAC_CTX context;
+    PUPFileEntry *file = NULL;
+    PUPHashEntry *hash = NULL;
+
+    sprintf (filename, "%s/%s", directory, entry->filename);
+
+    fd = fopen (filename, "rb");
+    if (fd == NULL) {
+      entry++;
+      continue;
+    }
+
+    printf ("Found file %s\n", filename);
+    header.file_count++;
+    header.header_length += sizeof(PUPFileEntry) + sizeof(PUPHashEntry);
+
+    files = realloc (files, sizeof(PUPFileEntry) * header.file_count);
+    hashes = realloc (hashes, sizeof(PUPHashEntry) * header.file_count);
+
+    file = &files[header.file_count - 1];
+    memset (file, 0, sizeof(PUPFileEntry));
+    hash = &hashes[header.file_count - 1];
+    memset (hash, 0, sizeof(PUPHashEntry));
+
+    hash->entry_id = header.file_count - 1;
+    file->entry_id = entry->id;
+    entry++;
+
+    HMACInit (&context, hmac_pup_key, sizeof(hmac_pup_key));
+    do {
+      read = fread (buffer, 1, sizeof(buffer), fd);
+      if (read < 0)
+        break;
+
+      HMACUpdate (&context, buffer, read);
+
+      file->data_length += read;
+    } while (!feof (fd));
+
+    HMACFinal (hash->hash, &context);
+
+    header.data_length += file->data_length;
+  }
+  for (i = 0; i < header.file_count; i++) {
+    if (i == 0)
+      files[i].data_offset = header.header_length;
+    else
+      files[i].data_offset = files[i-1].data_offset + files[i-1].data_length;
+  }
+
+  orig_header.magic = htonll (header.magic);
+  orig_header.package_version = htonll (header.package_version);
+  orig_header.image_version = htonll (header.image_version);
+  orig_header.file_count = htonll (header.file_count);
+  orig_header.header_length = htonll (header.header_length);
+  orig_header.data_length = htonll (header.data_length);
+
+  for (i = 0; i < header.file_count; i++) {
+    files[i].entry_id = htonll (files[i].entry_id);
+    files[i].data_offset = htonll (files[i].data_offset);
+    files[i].data_length = htonll (files[i].data_length);
+    hashes[i].entry_id = htonll (hashes[i].entry_id);
+  }
+
+
+  HMACInit (&context, hmac_pup_key, sizeof(hmac_pup_key));
+  HMACUpdate (&context, &orig_header, sizeof(PUPHeader));
+  HMACUpdate (&context, files, header.file_count * sizeof(PUPFileEntry));
+  HMACUpdate (&context, hashes, header.file_count * sizeof(PUPHashEntry));
+  HMACFinal (footer.hash, &context);
+
+  print_header_info (&header, &footer);
+
+  written = fwrite (&orig_header, sizeof(PUPHeader), 1, out);
+  if (written < 0 || written < 1) {
+    perror ("Error writing header");
+    goto error;
+  }
+
+  written = fwrite (files, sizeof(PUPFileEntry), header.file_count, out);
+  if (written < 0 || (unsigned int) written < header.file_count) {
+    perror ("Error writing files header");
+    goto error;
+  }
+
+  written = fwrite (hashes, sizeof(PUPHashEntry), header.file_count, out);
+  if (written < 0 || (unsigned int) written < header.file_count) {
+    perror ("Error writing hashes header");
+    goto error;
+  }
+
+  written = fwrite (&footer, sizeof(PUPFooter), 1, out);
+  if (written < 0 || written < 1) {
+    perror ("Error writing footer");
+    goto error;
+  }
+
+  for (i = 0; i < header.file_count; i++) {
+    files[i].entry_id = ntohll (files[i].entry_id);
+    files[i].data_offset = ntohll (files[i].data_offset);
+    files[i].data_length = ntohll (files[i].data_length);
+    hashes[i].entry_id = ntohll (hashes[i].entry_id);
+  }
+
+
+  for (i = 0; i < header.file_count; i++) {
+    const char *file = NULL;
+    unsigned int len;
+
+    print_file_info (&files[i], &hashes[i]);
+
+    file = id_to_filename (files[i].entry_id);
+    if (file == NULL) {
+      printf ("*** Unknown entry id, file skipped ****\n\n");
+      continue;
+    }
+    sprintf (filename, "%s/%s", directory, file);
+
+    fd = fopen (filename, "rb");
+    if (fd == NULL) {
+      perror ("Could not open input file");
+      goto error;
+    }
+
+    fseek (out, files[i].data_offset, SEEK_SET);
+    do {
+      len = files[i].data_length;
+      if (len > sizeof(buffer))
+        len = sizeof(buffer);
+      read = fread (buffer, 1, len, fd);
+
+      if (read < 0 || (uint) read < len) {
+        perror ("Couldn't read all the data");
+        goto error;
+      }
+
+      written = fwrite (buffer, 1, len, out);
+      if (written < 0 || (uint) written < len) {
+        perror ("Couldn't write all the data");
+        goto error;
+      }
+      files[i].data_length -= len;
+    } while (files[i].data_length > 0);
+
+    fclose (fd);
+    fd = NULL;
+  }
+
+  if (fd)
+    fclose (fd);
+  fclose (out);
+  free (files);
+  free (hashes);
+
+  return;
+
+ error:
+  if (fd)
+    fclose (fd);
+  if (out)
+    fclose (out);
+  if (files)
+    free (files);
+  if (hashes)
+    free (hashes);
+
+  exit (-2);
 }
 
 
