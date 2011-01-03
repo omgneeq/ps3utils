@@ -381,6 +381,8 @@ static void extract (const char *file, const char *dest)
 
   }
 
+  if (out)
+    fclose (out);
   fclose (fd);
   free (files);
   free (hashes);
