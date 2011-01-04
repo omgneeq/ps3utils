@@ -111,6 +111,9 @@ log "Creating update files archive"
 tar -H ustar -cvf $OUTDIR/update_files.tar *.pkg *.img dev_flash3_* dev_flash_*  >> $LOGFILE 2>&1 || die "Could not create update files archive"
 $FIX_TAR $OUTDIR/update_files.tar >> $LOGFILE 2>&1 || die "Could not fix update tar file"
 
+VERSION=$(cat $OUTDIR/version.txt)
+echo "$VERSION-KaKaRoTo" > $OUTDIR/version.txt
+
 cd $BUILDDIR
 
 log "Creating CFW file"
