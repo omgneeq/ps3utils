@@ -177,7 +177,7 @@ int main (int argc, char *argv[])
   }
 
   if (ret == -1) {
-    perror ("Couldn't created directory in 20 attemps : ");
+    perror ("Couldn't create directory in 20 attemps : ");
     return -5;
   }
 
