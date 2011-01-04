@@ -14,6 +14,7 @@ FIX_TAR="$BUILDDIR/fix_tar"
 FWPKG="$BUILDDIR/../fwtool/fwpkg"
 LOGFILE="$BUILDDIR/create_cfw.log"
 OUTDIR="$BUILDDIR/CFW"
+OFWDIR="$BUILDDIR/OFW"
 
 
 if [ "x$1" == "x" -o "x$2" == "x" ]; then
@@ -46,6 +47,9 @@ log ""
 log "Deleting $OUTDIR and $2"
 rm -rf $OUTDIR
 rm -f $2
+if [ "x$OFWDIR" != "x" ]; then
+    rm -rf $OFWDIR
+fi
 
 log "Unpacking update file $1"
 $PUP x $1 $OUTDIR >> $LOGFILE 2>&1 || die "Could not extract the PUP file"
@@ -55,6 +59,13 @@ mkdir update_files
 cd update_files
 log "Extracting update files from unpacked PUP"
 tar -xvf $OUTDIR/update_files.tar  >> $LOGFILE 2>&1 || die "Could not untar the update files"
+
+if [ "x$OFWDIR" != "x" ]; then
+    log "Copying firmware to $OFWDIR"
+    cd $BUILDDIR
+    cp -r $OUTDIR $OFWDIR
+    cd $OUTDIR/update_files
+fi
 
 mkdir dev_flash
 cd dev_flash
