@@ -55,6 +55,8 @@ int main (int argc, char *argv[])
 
   do {
     size_t size = 0;
+    unsigned int checksum = 0;
+    unsigned int i;
 
     fseek (fd, pos, SEEK_SET);
     if (fread (&block, sizeof(TARHeader), 1, fd) != 1)
@@ -76,6 +78,13 @@ int main (int argc, char *argv[])
     strncpy (block.ustar, "ustar  ", 7);
     memset (block.device_major, 0, 8);
     memset (block.device_minor, 0, 8);
+
+    // Rebuild checksum
+    memset (block.checksum, ' ', 8);
+    for (i = 0; i < sizeof(TARHeader); i++)
+      checksum += ((unsigned char *) &block)[i];
+
+    snprintf (block.checksum, 8, "0%o", checksum);
 
     fseek (fd, pos, SEEK_SET);
     if (fwrite (&block, sizeof(TARHeader), 1, fd) != 1)
