@@ -15,7 +15,8 @@ CFLAGS=-Wall -Wextra \
 BINS= \
 	pdb_gen \
 	find_syscall \
-	pup
+	pup \
+	fix_tar
 
 all: $(BINS)
 
